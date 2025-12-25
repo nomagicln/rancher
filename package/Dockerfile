@@ -17,11 +17,11 @@ ARG GODEP_STEVE_PATH
 ARG GODEP_WRANGLER=scratch
 ARG GODEP_WRANGLER_PATH
 
-ARG CHART_DEFAULT_BRANCH=dev-v2.13
+ARG CHART_DEFAULT_BRANCH=dev-v2.14
 ARG PARTNER_CHART_DEFAULT_BRANCH=main
 ARG RKE2_CHART_DEFAULT_BRANCH=main
 # kontainer-driver-metadata branch to be set for specific branch other than dev/master, logic at rancher/rancher/pkg/settings/setting.go
-ARG CATTLE_KDM_BRANCH=dev-v2.13
+ARG CATTLE_KDM_BRANCH=dev-v2.14
 ARG VERSION=${VERSION}
 
 FROM --platform=$BUILDPLATFORM ${GODEP_APISERVER} AS godep-apiserver
@@ -69,7 +69,7 @@ RUN zypper refresh && \
 FROM final AS builder
 COPY --from=chroot-builder-server /chroot/ /
 
-FROM --platform=$BUILDPLATFORM registry.suse.com/bci/golang:1.24 AS go-builder
+FROM --platform=$BUILDPLATFORM registry.suse.com/bci/golang:1.25 AS go-builder
 ARG CGO_ENABLED=0
 ENV CGO_ENABLED=$CGO_ENABLED
 ENV GOMODCACHE=/root/.cache/go/modcache
@@ -157,7 +157,7 @@ ARG CATTLE_KDM_BRANCH
 ENV CATTLE_CHART_DEFAULT_BRANCH=$CHART_DEFAULT_BRANCH
 ENV CATTLE_PARTNER_CHART_DEFAULT_BRANCH=$PARTNER_CHART_DEFAULT_BRANCH
 ENV CATTLE_RKE2_CHART_DEFAULT_BRANCH=$RKE2_CHART_DEFAULT_BRANCH
-ENV CATTLE_MACHINE_VERSION=v0.15.0-rancher135
+ENV CATTLE_MACHINE_VERSION=v0.15.0-rancher137
 ENV CATTLE_K3S_VERSION=v1.34.1+k3s1
 ENV CATTLE_MACHINE_PROVISION_IMAGE=rancher/machine:${CATTLE_MACHINE_VERSION}
 ENV CATTLE_ETCD_VERSION=v3.5.21
@@ -168,13 +168,13 @@ ENV CATTLE_HELM_VERSION=v3.19.0-rancher1
 # make sure the version number is consistent with the one at Line 100 of pkg/data/management/machinedriver_data.go
 ENV DOCKER_MACHINE_HARVESTER_VERSION=v1.0.4
 ENV CATTLE_KDM_BRANCH=${CATTLE_KDM_BRANCH}
-ENV CATTLE_WINS_AGENT_VERSION=v0.5.3-rc.4
+ENV CATTLE_WINS_AGENT_VERSION=v0.5.3
 ENV CATTLE_WINS_AGENT_INSTALL_SCRIPT=https://raw.githubusercontent.com/rancher/wins/${CATTLE_WINS_AGENT_VERSION}/install.ps1
 ENV CATTLE_WINS_AGENT_UNINSTALL_SCRIPT=https://raw.githubusercontent.com/rancher/wins/${CATTLE_WINS_AGENT_VERSION}/uninstall.ps1
 ENV CATTLE_WINS_AGENT_UPGRADE_IMAGE=rancher/wins:${CATTLE_WINS_AGENT_VERSION}
 ENV CATTLE_CSI_PROXY_AGENT_VERSION=v1.1.3
 # make sure the CATTLE_SYSTEM_AGENT_VERSION is consistent with tests/v2/codecoverage/package/Dockerfile
-ENV CATTLE_SYSTEM_AGENT_VERSION=v0.3.14-rc.4
+ENV CATTLE_SYSTEM_AGENT_VERSION=v0.3.15-rc.1
 ENV CATTLE_SYSTEM_AGENT_DOWNLOAD_PREFIX=https://github.com/rancher/system-agent/releases/download
 ENV CATTLE_SYSTEM_AGENT_UPGRADE_IMAGE=rancher/system-agent:${CATTLE_SYSTEM_AGENT_VERSION}-suc
 ENV CATTLE_SYSTEM_AGENT_INSTALLER_IMAGE=rancher/system-agent-installer-
@@ -274,13 +274,17 @@ RUN mkdir -p /var/lib/rancher/k3s/agent/images/ && \
     curl -sfL ${ETCD_URL} | tar xvzf - --strip-components=1 --no-same-owner -C /usr/bin/ etcd-${CATTLE_ETCD_VERSION}-linux-${ARCH}/etcdctl && \
     mkdir -p /var/lib/rancher-data/driver-metadata
 
-ENV CATTLE_UI_VERSION=2.13.0-alpha2
-ENV CATTLE_DASHBOARD_UI_VERSION=v2.13.0-alpha2
+ENV CATTLE_UI_VERSION=2.13.0-alpha5
+ENV CATTLE_DASHBOARD_UI_VERSION=v2.13.0-alpha5
 
 ENV CATTLE_CLI_VERSION=v2.12.0-rc.1
 
 # Base UI brand used as a fallback env setting (not user facing) to indicate this is a non-prime install
 ENV CATTLE_BASE_UI_BRAND=
+
+# Cluster Autoscaler related settings, only set in prime installs
+ENV CATTLE_CLUSTER_AUTOSCALER_CHART_REPOSITORY=
+ENV CATTLE_CLUSTER_AUTOSCALER_IMAGE=
 
 # Please update the api-ui-version in pkg/settings/settings.go when updating the version here.
 ENV CATTLE_API_UI_VERSION=1.1.11
@@ -410,6 +414,8 @@ ARG VERSION
 ARG BASE_REGISTRY
 ARG BASE_UI_BRAND
 ARG RANCHER_VERSION_TYPE
+ARG CATTLE_CLUSTER_AUTOSCALER_CHART_REPOSITORY
+ARG CATTLE_CLUSTER_AUTOSCALER_IMAGE
 
 ENV CATTLE_BASE_REGISTRY=$BASE_REGISTRY
 ENV CATTLE_BASE_UI_BRAND=$BASE_UI_BRAND
@@ -417,6 +423,8 @@ ENV RANCHER_VERSION_TYPE=$RANCHER_VERSION_TYPE
 ENV CATTLE_SERVER_VERSION=${VERSION}
 ENV CATTLE_AGENT_IMAGE=${IMAGE_REPO}/rancher-agent:${VERSION}
 ENV CATTLE_SERVER_IMAGE=${IMAGE_REPO}/${IMAGE_NAME}
+ENV CATTLE_CLUSTER_AUTOSCALER_CHART_REPOSITORY=$CATTLE_CLUSTER_AUTOSCALER_CHART_REPOSITORY
+ENV CATTLE_CLUSTER_AUTOSCALER_IMAGE=$CATTLE_CLUSTER_AUTOSCALER_IMAGE
 
 COPY --chown=root:root --chmod=0755 \
     --from=server-build /app/rancher /usr/bin/

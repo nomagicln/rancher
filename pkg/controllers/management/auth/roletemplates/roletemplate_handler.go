@@ -28,7 +28,6 @@ var (
 		"etcdsnapshots":               "rke.cattle.io",
 	}
 	projectManagementPlaneResources = map[string]string{
-		"apps":                        "project.cattle.io",
 		"projectroletemplatebindings": "management.cattle.io",
 		"secrets":                     "",
 	}
@@ -218,9 +217,9 @@ func (r *roleTemplateHandler) gatherRules(rt *v3.RoleTemplate) ([]rbacv1.PolicyR
 			return nil, err
 		}
 		return cr.Rules, nil
-	} else {
-		return rt.Rules, nil
 	}
+
+	return rt.Rules, nil
 }
 
 // OnRemove deletes all the ClusterRoles created in each cluster for the RoleTemplate

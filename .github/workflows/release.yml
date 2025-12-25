@@ -88,6 +88,7 @@ jobs:
       cancel-in-progress: false
     env:
       ARCH: amd64
+      REGISTRY: "" # remove to set the registry at systemDefaultRegistry on the chart
     steps:
       - name: install dependencies
         shell: bash
@@ -234,6 +235,6 @@ jobs:
         uses: rancher-eio/read-vault-secrets@main
         with:
           secrets: |
-            secret/data/github/repo/${{ github.repository }}/slack/webhook webhook_url | WEBHOOK_URL ;
+            secret/data/github/repo/${{ github.repository }}/slack/webhook credentials | WEBHOOK_URL;
       - name: notify
         uses: ./.github/actions/notify-release

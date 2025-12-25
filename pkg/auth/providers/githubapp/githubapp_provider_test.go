@@ -1,7 +1,6 @@
 package githubapp
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -11,7 +10,6 @@ import (
 
 	apiv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	"github.com/rancher/rancher/pkg/auth/accessor"
-	util2 "github.com/rancher/rancher/pkg/auth/util"
 	client "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	publicclient "github.com/rancher/rancher/pkg/client/generated/management/v3public"
 	"github.com/stretchr/testify/assert"
@@ -62,10 +60,10 @@ func TestTransformToAuthProvider(t *testing.T) {
 
 	t.Run("when no alternative client_id is provided for hostname", func(t *testing.T) {
 		rawAuthConfig := map[string]any{
-			client.GithubConfigFieldHostname: "suse.com",
-			client.GithubConfigFieldClientID: "test_client_id",
-			client.GithubConfigFieldTLS:      true,
-			".host":                          "example.com",
+			client.GithubAppConfigFieldHostname: "suse.com",
+			client.GithubAppConfigFieldClientID: "test_client_id",
+			client.GithubAppConfigFieldTLS:      true,
+			".host":                             "example.com",
 		}
 
 		transformed, err := provider.TransformToAuthProvider(rawAuthConfig)
@@ -82,10 +80,10 @@ func TestTransformToAuthProvider(t *testing.T) {
 
 	t.Run("when alternative client_id is provided for hostname", func(t *testing.T) {
 		rawAuthConfig := map[string]any{
-			client.GithubConfigFieldHostname: "suse.com",
-			client.GithubConfigFieldClientID: "test_client_id",
-			client.GithubConfigFieldTLS:      true,
-			".host":                          "example.com",
+			client.GithubAppConfigFieldHostname: "suse.com",
+			client.GithubAppConfigFieldClientID: "test_client_id",
+			client.GithubAppConfigFieldTLS:      true,
+			".host":                             "example.com",
 			"hostnameToClientId": map[string]any{
 				"example.com": "other_client_id",
 			},
@@ -128,14 +126,12 @@ func TestAuthenticateUser(t *testing.T) {
 		getConfig:    func() (*apiv3.GithubAppConfig, error) { return config, nil },
 		userManager:  &fakeUserManager{},
 	}
-	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
-	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
-	ctx := context.WithValue(t.Context(), util2.RequestKey, req)
 	input := &apiv3.GithubLogin{
 		Code: authCode,
 	}
-	userPrincipal, groupPrincipals, token, err := provider.AuthenticateUser(ctx, input)
+	userPrincipal, groupPrincipals, token, err := provider.AuthenticateUser(httptest.NewRecorder(), req, input)
 	require.NoError(t, err)
 
 	wantUser := apiv3.Principal{

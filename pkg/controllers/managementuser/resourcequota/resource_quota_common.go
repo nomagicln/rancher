@@ -7,10 +7,13 @@ import (
 	apiv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	wmgmtv3 "github.com/rancher/rancher/pkg/generated/controllers/management.cattle.io/v3"
 	"github.com/rancher/rancher/pkg/ref"
+	"github.com/rancher/rancher/pkg/resourcequota"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
+
+const extendedKey = resourcequota.ExtendedKey
 
 func convertResourceListToLimit(rList corev1.ResourceList) (*apiv3.ResourceQuotaLimit, error) {
 	converted, err := convert.EncodeToMap(rList)
@@ -18,9 +21,18 @@ func convertResourceListToLimit(rList corev1.ResourceList) (*apiv3.ResourceQuota
 		return nil, err
 	}
 
-	convertedMap := map[string]string{}
+	extended := map[string]string{}
+	convertedMap := map[string]any{}
 	for key, value := range converted {
+		if val, ok := resourceQuotaReturnConversion[key]; ok {
+			key = val
+		} else {
+			extended[key] = convert.ToString(value)
+		}
 		convertedMap[key] = convert.ToString(value)
+	}
+	if len(extended) > 0 {
+		convertedMap[extendedKey] = extended
 	}
 
 	toReturn := &apiv3.ResourceQuotaLimit{}
@@ -42,33 +54,7 @@ func convertResourceLimitResourceQuotaSpec(limit *apiv3.ResourceQuotaLimit) (*co
 
 // convertProjectResourceLimitToResourceList tries to convert a Rancher-defined resource quota limit to its native Kubernetes notation.
 func convertProjectResourceLimitToResourceList(limit *apiv3.ResourceQuotaLimit) (corev1.ResourceList, error) {
-	in, err := json.Marshal(limit)
-	if err != nil {
-		return nil, err
-	}
-	limitsMap := map[string]string{}
-	err = json.Unmarshal(in, &limitsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	limits := corev1.ResourceList{}
-	for key, value := range limitsMap {
-		var resourceName corev1.ResourceName
-		if val, ok := resourceQuotaConversion[key]; ok {
-			resourceName = corev1.ResourceName(val)
-		} else {
-			resourceName = corev1.ResourceName(key)
-		}
-
-		resourceQuantity, err := resource.ParseQuantity(value)
-		if err != nil {
-			return nil, err
-		}
-
-		limits[resourceName] = resourceQuantity
-	}
-	return limits, nil
+	return resourcequota.ConvertLimitToResourceList(limit)
 }
 
 func convertContainerResourceLimitToResourceList(limit *apiv3.ContainerResourceLimit) (corev1.ResourceList, corev1.ResourceList, error) {
@@ -125,17 +111,21 @@ var limitRangerLimitConversion = map[string]string{
 	"limitsMemory": "memory",
 }
 
-var resourceQuotaConversion = map[string]string{
-	"replicationControllers": "replicationcontrollers",
-	"configMaps":             "configmaps",
-	"persistentVolumeClaims": "persistentvolumeclaims",
-	"servicesNodePorts":      "services.nodeports",
-	"servicesLoadBalancers":  "services.loadbalancers",
-	"requestsCpu":            "requests.cpu",
-	"requestsMemory":         "requests.memory",
-	"requestsStorage":        "requests.storage",
-	"limitsCpu":              "limits.cpu",
-	"limitsMemory":           "limits.memory",
+// Also see resourcequota.resourceQuotaConversion for the table governing the forward conversion
+var resourceQuotaReturnConversion = map[string]string{
+	"configmaps":             "configMaps",
+	"limits.cpu":             "limitsCpu",
+	"limits.memory":          "limitsMemory",
+	"persistentvolumeclaims": "persistentVolumeClaims",
+	"pods":                   "pods",
+	"replicationcontrollers": "replicationControllers",
+	"requests.cpu":           "requestsCpu",
+	"requests.memory":        "requestsMemory",
+	"requests.storage":       "requestsStorage",
+	"secrets":                "secrets",
+	"services":               "services",
+	"services.loadbalancers": "servicesLoadBalancers",
+	"services.nodeports":     "servicesNodePorts",
 }
 
 func getNamespaceResourceQuota(ns *corev1.Namespace) string {

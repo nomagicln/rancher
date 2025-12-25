@@ -187,11 +187,18 @@ var (
 		"Enable Rancher Turtles for managing CAPI lifecycle",
 		true,
 		false,
-		true)
+		false)
 	ClusterAutoscaling = newFeature(
 		"cluster-autoscaling",
 		"Enable Rancher cluster-autoscaler support",
 		isPrime(),
+		false,
+		true,
+	)
+	V3Public = newFeature(
+		"v3-public",
+		"Enable /v3-public API endpoints",
+		true,
 		false,
 		true,
 	)

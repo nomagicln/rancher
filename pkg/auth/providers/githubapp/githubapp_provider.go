@@ -113,18 +113,13 @@ func (g *Provider) TransformToAuthProvider(authConfig map[string]any) (map[strin
 	return p, nil
 }
 
-func (g *Provider) AuthenticateUser(ctx context.Context, input any) (apiv3.Principal, []apiv3.Principal, string, error) {
+func (g *Provider) AuthenticateUser(_ http.ResponseWriter, req *http.Request, input any) (apiv3.Principal, []apiv3.Principal, string, error) {
 	login, ok := input.(*apiv3.GithubLogin)
 	if !ok {
 		return apiv3.Principal{}, nil, "", errors.New("unexpected input type")
 	}
-	host := ""
-	req, ok := ctx.Value(util2.RequestKey).(*http.Request)
-	if ok {
-		host = util2.GetHost(req)
-	}
 
-	return g.LoginUser(host, login, nil, false)
+	return g.LoginUser(util2.GetHost(req), login, nil, false)
 }
 
 func (g *Provider) LoginUser(host string, githubCredential *apiv3.GithubLogin, config *apiv3.GithubAppConfig, test bool) (apiv3.Principal, []apiv3.Principal, string, error) {
@@ -390,6 +385,18 @@ func (g *Provider) getGithubAppConfigCR() (*apiv3.GithubAppConfig, error) {
 		}
 	}
 
+	if storedGithubAppConfig.PrivateKey != "" {
+		data, err := common.ReadFromSecretData(g.secrets, storedGithubAppConfig.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range data {
+			if strings.EqualFold(k, client.GithubAppConfigFieldPrivateKey) {
+				storedGithubAppConfig.PrivateKey = string(v)
+			}
+		}
+	}
+
 	return storedGithubAppConfig, nil
 }
 
@@ -409,13 +416,22 @@ func (g *Provider) saveGithubAppConfig(config *apiv3.GithubAppConfig) error {
 	if err != nil {
 		return err
 	}
-
 	config.ClientSecret = name
+
+	privateKeyInfo := convert.ToString(config.PrivateKey)
+	privateKeyField := strings.ToLower(client.GithubAppConfigFieldPrivateKey)
+	privateKeyName, err := common.CreateOrUpdateSecrets(g.secrets, privateKeyInfo, privateKeyField, strings.ToLower(config.Type))
+	if err != nil {
+		return err
+	}
+
+	config.PrivateKey = privateKeyName
 
 	_, err = g.authConfigs.ObjectClient().Update(config.ObjectMeta.Name, config)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
